@@ -23,6 +23,20 @@ function normalizeStatus(value) {
 
 function normalizeItem(item) {
   const category = normalizeCategory(item);
+  const askingPrice = normalizeNumber(item.askingPrice);
+  const soldPrice = normalizeNumber(item.soldPrice);
+  const soldAt = String(item.soldAt || "").trim();
+  let status = normalizeStatus(item.status);
+
+  // Compatibilidad con datos antiguos: si ya hay venta guardada, inferimos el estado.
+  if (status === "coleccion" && soldPrice > 0) {
+    status = "vendido";
+  } else if (status === "coleccion" && soldAt) {
+    status = "vendido";
+  } else if (status === "coleccion" && askingPrice > 0) {
+    status = "venta";
+  }
+
   return {
     id: String(item.id || ""),
     name: String(item.name || "").trim(),
@@ -32,10 +46,10 @@ function normalizeItem(item) {
     purchaseDate: String(item.purchaseDate || item.date || "").trim(),
     purchasePrice: normalizeNumber(item.purchasePrice),
     notes: String(item.notes || "").trim(),
-    status: normalizeStatus(item.status),
-    askingPrice: normalizeNumber(item.askingPrice),
-    soldPrice: normalizeNumber(item.soldPrice),
-    soldAt: String(item.soldAt || "").trim(),
+    status,
+    askingPrice,
+    soldPrice,
+    soldAt,
     createdAt: item.createdAt || new Date().toISOString(),
     updatedAt: item.updatedAt || new Date().toISOString()
   };
