@@ -23,9 +23,14 @@ const UI = {
   searchCategory: document.getElementById("search-category"),
   btnRunSearch: document.getElementById("btn-run-search"),
   btnClearSearch: document.getElementById("btn-clear-search"),
-  resultsBody: document.getElementById("results-body"),
   resultsSummary: document.getElementById("results-summary"),
   resultsEmpty: document.getElementById("results-empty"),
+  resultsPurchasesGroup: document.getElementById("results-purchases-group"),
+  resultsPurchasesCount: document.getElementById("results-purchases-count"),
+  resultsPurchasesBody: document.getElementById("results-purchases-body"),
+  resultsSalesGroup: document.getElementById("results-sales-group"),
+  resultsSalesCount: document.getElementById("results-sales-count"),
+  resultsSalesBody: document.getElementById("results-sales-body"),
   detailBadge: document.getElementById("detail-badge"),
   detailEmpty: document.getElementById("detail-empty"),
   detailContent: document.getElementById("detail-content"),
@@ -359,31 +364,13 @@ function getFilteredItems() {
     });
 }
 
-function renderResults() {
-  visibleItems = getFilteredItems();
-  const hasFilters = Boolean(UI.searchName.value.trim() || UI.searchCategory.value);
-  UI.resultsSummary.textContent = hasFilters
-    ? `${visibleItems.length} resultado(s)`
-    : `Coleccion completa · ${visibleItems.length} articulo(s)`;
-
-  UI.resultsEmpty.classList.toggle("hidden", visibleItems.length > 0);
-
-  if (!visibleItems.length) {
-    UI.resultsBody.innerHTML = "";
-    if (!getSelectedItem()) {
-      renderDetail(null);
-    }
-    return;
-  }
-
-  if (!visibleItems.some((item) => item.id === selectedItemId)) {
-    selectedItemId = visibleItems[0].id;
-  }
-
-  UI.resultsBody.innerHTML = visibleItems
+function renderPurchasesTable(items) {
+  UI.resultsPurchasesCount.textContent = `${items.length} articulo(s)`;
+  UI.resultsPurchasesGroup.classList.toggle("hidden", items.length === 0);
+  UI.resultsPurchasesBody.innerHTML = items
     .map((item) => {
       const statusLabel = getItemStatusLabel(item.status);
-      const statusClass = item.status === "venta" ? "status-venta" : item.status === "vendido" ? "status-vendido" : "status-coleccion";
+      const statusClass = item.status === "venta" ? "status-venta" : "status-coleccion";
       const selectedClass = item.id === selectedItemId ? "selected" : "";
       return `
         <tr class="result-row ${statusClass} ${selectedClass}" data-item-id="${escapeHtml(item.id)}">
@@ -395,6 +382,57 @@ function renderResults() {
       `;
     })
     .join("");
+}
+
+function renderSalesTable(items) {
+  UI.resultsSalesCount.textContent = `${items.length} articulo(s)`;
+  UI.resultsSalesGroup.classList.toggle("hidden", items.length === 0);
+  UI.resultsSalesBody.innerHTML = items
+    .map((item) => {
+      const selectedClass = item.id === selectedItemId ? "selected" : "";
+      const benefit = item.soldPrice - item.purchasePrice;
+      const benefitClass = benefit >= 0 ? "amount-positive" : "amount-negative";
+      return `
+        <tr class="result-row status-vendido ${selectedClass}" data-item-id="${escapeHtml(item.id)}">
+          <td>${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.category)}</td>
+          <td>${escapeHtml(formatCurrency(item.purchasePrice))}</td>
+          <td>${escapeHtml(formatCurrency(item.soldPrice))}</td>
+          <td class="${benefitClass}">${escapeHtml(formatCurrency(benefit))}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderResults() {
+  visibleItems = getFilteredItems();
+  const purchaseItems = visibleItems.filter((item) => item.status !== "vendido");
+  const salesItems = visibleItems.filter((item) => item.status === "vendido");
+  const hasFilters = Boolean(UI.searchName.value.trim() || UI.searchCategory.value);
+  UI.resultsSummary.textContent = hasFilters
+    ? `${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`
+    : `Coleccion completa · ${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`;
+
+  UI.resultsEmpty.classList.toggle("hidden", visibleItems.length > 0);
+
+  if (!visibleItems.length) {
+    UI.resultsPurchasesBody.innerHTML = "";
+    UI.resultsSalesBody.innerHTML = "";
+    UI.resultsPurchasesGroup.classList.add("hidden");
+    UI.resultsSalesGroup.classList.add("hidden");
+    if (!getSelectedItem()) {
+      renderDetail(null);
+    }
+    return;
+  }
+
+  if (!visibleItems.some((item) => item.id === selectedItemId)) {
+    selectedItemId = visibleItems[0].id;
+  }
+
+  renderPurchasesTable(purchaseItems);
+  renderSalesTable(salesItems);
 
   renderDetail(getSelectedItem());
 }
@@ -594,7 +632,7 @@ async function init() {
     }
   });
 
-  UI.resultsBody.addEventListener("click", (event) => {
+  document.querySelector(".results-block").addEventListener("click", (event) => {
     const row = event.target.closest("tr[data-item-id]");
     if (!row) return;
     selectedItemId = row.dataset.itemId;

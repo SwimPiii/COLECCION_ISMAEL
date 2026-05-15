@@ -155,18 +155,47 @@
 
               <div id="results-empty" class="empty-state hidden">No hay articulos que coincidan con la busqueda.</div>
 
-              <div class="results-table-wrap">
-                <table class="results-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Categoria</th>
-                      <th>Compra</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody id="results-body"></tbody>
-                </table>
+              <div id="results-purchases-group" class="results-group">
+                <div class="results-subheader">
+                  <h3>Compras</h3>
+                  <span id="results-purchases-count" class="muted">0 articulos</span>
+                </div>
+
+                <div class="results-table-wrap">
+                  <table class="results-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Categoria</th>
+                        <th>Compra</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody id="results-purchases-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="results-sales-group" class="results-group">
+                <div class="results-subheader">
+                  <h3>Ventas</h3>
+                  <span id="results-sales-count" class="muted">0 articulos</span>
+                </div>
+
+                <div class="results-table-wrap">
+                  <table class="results-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Categoria</th>
+                        <th>Compra</th>
+                        <th>Venta</th>
+                        <th>Beneficio</th>
+                      </tr>
+                    </thead>
+                    <tbody id="results-sales-body"></tbody>
+                  </table>
+                </div>
               </div>
             </section>
           </article>

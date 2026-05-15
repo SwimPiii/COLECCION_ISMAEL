@@ -238,6 +238,22 @@ textarea {
   margin-bottom: 12px;
 }
 
+.results-group {
+  display: grid;
+  gap: 10px;
+}
+
+.results-group + .results-group {
+  margin-top: 18px;
+}
+
+.results-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .results-table-wrap {
   overflow: auto;
   border: 1px solid rgba(151, 181, 226, 0.14);
@@ -284,6 +300,16 @@ textarea {
 
 .result-row.status-vendido {
   background: var(--sold-bg);
+}
+
+.amount-positive {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.amount-negative {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .detail-panel {
