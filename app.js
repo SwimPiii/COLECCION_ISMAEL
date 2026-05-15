@@ -209,7 +209,7 @@ function parseSaleImportBlock(rawText, defaultCategory, defaultDate, existingIte
 
     const comparableName = normalizeComparableName(name);
     const candidates = comparableMap.get(comparableName) || [];
-    const targetItem = candidates.find((item) => item.status !== "vendido") || candidates[0] || null;
+    const targetItem = candidates.find((item) => item.status !== "vendido") || null;
     const soldAt = defaultDate || new Date().toISOString();
     const updatedAt = new Date().toISOString();
 
