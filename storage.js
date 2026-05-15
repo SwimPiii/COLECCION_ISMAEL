@@ -1,5 +1,10 @@
 function normalizeNumber(value) {
-  const numericValue = Number(value);
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const numericValue = Number(normalized);
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 

@@ -90,8 +90,8 @@ function newId(prefix) {
 }
 
 function toAmount(value) {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+  const parsedValue = parseAmountToken(value);
+  return parsedValue === null ? 0 : parsedValue;
 }
 
 function parseAmountToken(value) {
