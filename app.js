@@ -335,14 +335,6 @@ async function init() {
     }
   } catch {}
 
-  if (window.COLECCION_CONFIG.googleClientId && window.driveApi && window.driveApi.trySilentSignIn) {
-    const connected = await window.driveApi.trySilentSignIn();
-    if (connected) {
-      await connectAndLoadFromDrive();
-      await refreshDriveUI();
-    }
-  }
-
   UI.purchaseCategory.addEventListener("change", updateCustomCategoryVisibility);
 
   UI.purchaseForm.addEventListener("submit", async (event) => {

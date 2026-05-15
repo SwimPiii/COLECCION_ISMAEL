@@ -1,63 +1,50 @@
 # Coleccion Tracker
 
-Aplicacion web estatica para gestionar tu coleccion de videojuegos, figuras y otros objetos, con inventario editable, registro de compras y ventas, y balance de costes.
+Aplicacion web estatica para registrar compras, consultar inventario, marcar objetos en venta y cerrar ventas de tu coleccion.
 
-## Funciones incluidas
+## Estado actual
 
-- Alta, edicion y eliminacion de objetos de la coleccion.
-- Filtros para visualizar el inventario por texto, categoria y estado.
-- Registro de compras y ventas seleccionando objetos del inventario.
-- Balance global, coste neto de la coleccion activa y valor estimado.
-- Persistencia local en el navegador.
-- Sincronizacion opcional con Google Drive mediante un fichero JSON en la carpeta PROGRAMA_WEB_GASTOS.
+- Repositorio GitHub: https://github.com/SwimPiii/COLECCION_ISMAEL
+- Fichero de datos en Drive: coleccion_tracker_db.json
+- Carpeta de Drive: COLECCION_ISMAEL
+- Folder ID: 1hyYuZ9bg8AoWwGtwfL9xgQtkgUlhMHiE
+- Cuenta objetivo: ismaelfernandezsaez2@gmail.com
 
 ## Google Drive
 
-La app esta preparada para trabajar con esta carpeta de tu Drive:
+La app ya lleva configurado el mismo OAuth Client ID que GORDERIA_EXTREMA.
 
-- Nombre: PROGRAMA_WEB_GASTOS
-- Folder ID: 15Lah8e-U9CsUR_O-KUajU8W5OGn0vvPS
-- Fichero JSON esperado: coleccion_tracker_db.json
+Necesitas que en Google Cloud ese Client ID tenga autorizados estos origins:
 
-Necesitas crear un OAuth Client ID de tipo Web Application en Google Cloud y pegarlo en la propia app.
+- http://localhost:5511
+- https://swimpiii.github.io
 
-Orgenes recomendados:
-
-- Local: http://localhost:5500
-- GitHub Pages del repositorio actual: https://swimpiii.github.io
-
-Scope configurado:
+La app usa este scope:
 
 - https://www.googleapis.com/auth/drive
 
-Se usa este scope amplio porque la app debe poder acceder a una carpeta concreta ya existente de tu Drive y crear el JSON dentro de ella.
+Se usa ese scope porque el JSON vive dentro de una carpeta concreta ya existente de tu Drive.
 
 ## Ejecutar en local
 
 Desde esta carpeta:
 
 ```powershell
-python -m http.server 5500
+python -m http.server 5511
 ```
 
 Y luego abre:
 
 ```text
-http://localhost:5500/
+http://127.0.0.1:5511/index.html
 ```
 
-## Publicar en la misma cuenta de GitHub que PROGRAMA_ESTUDIO_AJEDREZ
+## Publicacion
 
-El remoto del workspace apunta a la cuenta SwimPiii y al repositorio PROGRAMA_GORDERIA_EXTREMA.
+El repo ya incluye workflow de GitHub Pages.
 
-Ruta prevista para publicar esta app dentro del mismo repo:
-
-- PROGRAMA_WEB_COLECCION/
-
-Si GitHub Pages sirve la rama o carpeta adecuada, la URL final sera del estilo:
+Cuando Pages este activado con GitHub Actions, la URL publica sera:
 
 ```text
-https://swimpiii.github.io/PROGRAMA_GORDERIA_EXTREMA/PROGRAMA_WEB_COLECCION/
+https://swimpiii.github.io/COLECCION_ISMAEL/
 ```
-
-Como la app usa rutas relativas, no necesita cambios extra para funcionar dentro de esa subcarpeta.

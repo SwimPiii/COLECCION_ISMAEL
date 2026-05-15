@@ -10,6 +10,7 @@
   };
 
   let tokenClient = null;
+  let pendingAuthReject = null;
 
   function getClientId() {
     return (window.COLECCION_CONFIG && window.COLECCION_CONFIG.googleClientId) || "";
@@ -80,7 +81,14 @@
       scope: cfg.googleScopes,
       callback: "",
       hint: getAccountHint(),
-      use_fedcm_for_prompt: true
+      error_callback: (error) => {
+        state.lastError = error;
+        if (pendingAuthReject) {
+          const reject = pendingAuthReject;
+          pendingAuthReject = null;
+          reject(error);
+        }
+      }
     });
     return tokenClient;
   }
@@ -88,8 +96,6 @@
   async function prepare() {
     try {
       await initClient();
-      await waitForGIS();
-      createTokenClient();
     } catch (error) {
       state.lastError = error;
     }
@@ -190,8 +196,10 @@
     }
 
     return new Promise((resolve, reject) => {
+      pendingAuthReject = reject;
       tokenClient.callback = async (response) => {
         try {
+          pendingAuthReject = null;
           if (!response || !response.access_token) {
             throw new Error("No se obtuvo access_token");
           }
