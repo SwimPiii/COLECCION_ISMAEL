@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coleccion Tracker</title>
+    <meta
+      name="description"
+      content="Inventario web para registrar, editar y controlar compras y ventas de videojuegos, figuras y otros objetos de coleccion."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="config.js" defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="drive.js" defer></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <div class="backdrop backdrop-a"></div>
+    <div class="backdrop backdrop-b"></div>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Coleccion personal</p>
+        <h1>Coleccion Tracker</h1>
+        <p class="hero-text">
+          Controla tu inventario, registra compras y ventas, y calcula cuanto te cuesta realmente tu coleccion.
+        </p>
+      </div>
+
+      <section class="panel persistence-panel">
+        <div class="panel-header">
+          <h2>Sincronizacion</h2>
+          <span id="drive-status" class="status-chip muted">Local</span>
+        </div>
+
+        <label class="switch-row">
+          <span>Usar Google Drive</span>
+          <input id="toggle-drive" type="checkbox" />
+        </label>
+
+        <p id="save-status" class="muted small-text">
+          Los datos se guardan en LocalStorage hasta que conectes tu cuenta.
+        </p>
+
+        <div class="inline-actions">
+          <button id="btn-drive-signin" class="btn primary">Conectar</button>
+          <button id="btn-drive-signout" class="btn subtle">Desconectar</button>
+        </div>
+
+        <label class="field">
+          <span>Google OAuth Client ID</span>
+          <input id="drive-client-id" type="text" placeholder="Pega aqui tu Client ID de Google Cloud" />
+        </label>
+
+        <div class="inline-actions">
+          <button id="btn-save-clientid" class="btn">Guardar Client ID</button>
+          <button id="btn-clear-clientid" class="btn subtle">Borrar</button>
+        </div>
+      </section>
+    </header>
+
+    <main class="layout">
+      <section class="metrics-grid" id="metrics-grid"></section>
+
+      <section class="grid two-columns">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Inventario</h2>
+            <button id="btn-reset-item" class="btn subtle">Nuevo objeto</button>
+          </div>
+
+          <form id="item-form" class="form-grid">
+            <input type="hidden" id="item-id" />
+
+            <label class="field span-2">
+              <span>Nombre</span>
+              <input id="item-name" type="text" placeholder="Ej. Zelda: Twilight Princess" required />
+            </label>
+
+            <label class="field">
+              <span>Categoria</span>
+              <select id="item-category">
+                <option value="Videojuego">Videojuego</option>
+                <option value="Figura">Figura</option>
+                <option value="Consola">Consola</option>
+                <option value="Accesorio">Accesorio</option>
+                <option value="Merchandising">Merchandising</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Plataforma o serie</span>
+              <input id="item-platform" type="text" placeholder="PS2, Switch, Zelda..." />
+            </label>
+
+            <label class="field">
+              <span>Formato</span>
+              <input id="item-format" type="text" placeholder="Fisico, precintado, edicion coleccionista..." />
+            </label>
+
+            <label class="field">
+              <span>Estado</span>
+              <select id="item-status">
+                <option value="disponible">Disponible</option>
+                <option value="reservado">Reservado</option>
+                <option value="vendido">Vendido</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Ubicacion</span>
+              <input id="item-location" type="text" placeholder="Estanteria salon, caja 2..." />
+            </label>
+
+            <label class="field">
+              <span>Precio de compra</span>
+              <input id="item-purchase-price" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+
+            <label class="field">
+              <span>Valor estimado</span>
+              <input id="item-estimated-value" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+
+            <label class="field span-2">
+              <span>Notas</span>
+              <textarea id="item-notes" rows="4" placeholder="Estado de caja, manual, version, detalles de compra..."></textarea>
+            </label>
+
+            <div class="inline-actions span-2">
+              <button type="submit" class="btn primary">Guardar objeto</button>
+              <button type="button" id="btn-delete-item" class="btn danger subtle">Eliminar objeto</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Compras y ventas</h2>
+          </div>
+
+          <form id="transaction-form" class="form-grid">
+            <label class="field span-2">
+              <span>Objeto del inventario</span>
+              <select id="transaction-item" required></select>
+            </label>
+
+            <label class="field">
+              <span>Tipo</span>
+              <select id="transaction-type">
+                <option value="purchase">Compra</option>
+                <option value="sale">Venta</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Importe</span>
+              <input id="transaction-amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </label>
+
+            <label class="field">
+              <span>Fecha</span>
+              <input id="transaction-date" type="date" required />
+            </label>
+
+            <label class="field">
+              <span>Lugar</span>
+              <input id="transaction-place" type="text" placeholder="Wallapop, tienda, particular..." />
+            </label>
+
+            <label class="field span-2 checkbox-row">
+              <input id="transaction-mark-sold" type="checkbox" checked />
+              <span>Si es una venta, marcar automaticamente el objeto como vendido</span>
+            </label>
+
+            <label class="field span-2">
+              <span>Notas</span>
+              <textarea id="transaction-notes" rows="3" placeholder="Lote, envio, estado, observaciones..."></textarea>
+            </label>
+
+            <div class="inline-actions span-2">
+              <button type="submit" class="btn primary">Guardar movimiento</button>
+            </div>
+          </form>
+
+          <div class="panel-subsection">
+            <div class="panel-header compact">
+              <h3>Ultimos movimientos</h3>
+            </div>
+            <div id="transactions-list" class="list-stack"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Vista de coleccion</h2>
+        </div>
+
+        <div class="filters">
+          <label class="field grow">
+            <span>Buscar</span>
+            <input id="filter-search" type="text" placeholder="Nombre, plataforma, notas..." />
+          </label>
+
+          <label class="field">
+            <span>Categoria</span>
+            <select id="filter-category">
+              <option value="">Todas</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Estado</span>
+            <select id="filter-status">
+              <option value="">Todos</option>
+              <option value="disponible">Disponible</option>
+              <option value="reservado">Reservado</option>
+              <option value="vendido">Vendido</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="inventory-list" class="inventory-grid"></div>
+      </section>
+
+      <footer class="footer">
+        <span id="version"></span>
+        <span>Repositorio GitHub esperado: cuenta SwimPiii</span>
+      </footer>
+    </main>
+  </body>
+</html>
