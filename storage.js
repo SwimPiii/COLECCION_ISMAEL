@@ -1,44 +1,49 @@
-const LOCAL_KEY = "coleccion_tracker_state_v1";
-
 function normalizeNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function normalizeCategory(item) {
+  if (item.category && String(item.category).trim()) {
+    return String(item.category).trim();
+  }
+
+  if (item.categoryType === "Otros" && item.customCategory) {
+    return String(item.customCategory).trim() || "Otros";
+  }
+
+  return "Otros";
+}
+
+function normalizeStatus(value) {
+  const status = String(value || "coleccion").trim().toLowerCase();
+  if (status === "venta" || status === "vendido") return status;
+  return "coleccion";
 }
 
 function normalizeItem(item) {
+  const category = normalizeCategory(item);
   return {
     id: String(item.id || ""),
     name: String(item.name || "").trim(),
-    category: String(item.category || "Otro").trim() || "Otro",
-    platform: String(item.platform || "").trim(),
-    format: String(item.format || "").trim(),
-    location: String(item.location || "").trim(),
-    status: String(item.status || "disponible").trim() || "disponible",
+    category,
+    categoryType: item.categoryType === "Otros" ? "Otros" : category,
+    customCategory: item.categoryType === "Otros" ? category : String(item.customCategory || "").trim(),
+    purchaseDate: String(item.purchaseDate || item.date || "").trim(),
     purchasePrice: normalizeNumber(item.purchasePrice),
-    estimatedValue: normalizeNumber(item.estimatedValue),
     notes: String(item.notes || "").trim(),
+    status: normalizeStatus(item.status),
+    askingPrice: normalizeNumber(item.askingPrice),
+    soldPrice: normalizeNumber(item.soldPrice),
+    soldAt: String(item.soldAt || "").trim(),
     createdAt: item.createdAt || new Date().toISOString(),
     updatedAt: item.updatedAt || new Date().toISOString()
-  };
-}
-
-function normalizeTransaction(transaction) {
-  return {
-    id: String(transaction.id || ""),
-    itemId: String(transaction.itemId || ""),
-    type: transaction.type === "sale" ? "sale" : "purchase",
-    amount: normalizeNumber(transaction.amount),
-    date: String(transaction.date || "").trim(),
-    place: String(transaction.place || "").trim(),
-    notes: String(transaction.notes || "").trim(),
-    createdAt: transaction.createdAt || new Date().toISOString()
   };
 }
 
 export function getDefaultState() {
   return {
     items: [],
-    transactions: [],
     lastUpdated: new Date().toISOString()
   };
 }
@@ -50,64 +55,31 @@ export function normalizeState(rawState) {
 
   return {
     items: Array.isArray(rawState.items) ? rawState.items.map(normalizeItem) : [],
-    transactions: Array.isArray(rawState.transactions)
-      ? rawState.transactions.map(normalizeTransaction)
-      : [],
     lastUpdated: rawState.lastUpdated || new Date().toISOString()
   };
 }
 
-export function loadLocalState() {
-  try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (!raw) return null;
-    return normalizeState(JSON.parse(raw));
-  } catch (error) {
-    console.warn("No se pudo cargar el estado local", error);
-    return null;
-  }
-}
-
-export function saveLocalState(state) {
-  try {
-    const payload = { ...normalizeState(state), lastUpdated: new Date().toISOString() };
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
-    return true;
-  } catch (error) {
-    console.warn("No se pudo guardar el estado local", error);
-    return false;
-  }
-}
-
 export async function loadState(preferDrive) {
-  if (preferDrive && window.driveApi && window.driveApi.isReady()) {
+  if (preferDrive && window.driveApi && window.driveApi.isReady() && window.driveApi.isSignedIn()) {
     try {
       const remoteState = await window.driveApi.loadFromDrive();
       if (remoteState) {
-        const normalized = normalizeState(remoteState);
-        saveLocalState(normalized);
-        return normalized;
+        return normalizeState(remoteState);
       }
     } catch (error) {
-      console.warn("No se pudo cargar desde Drive, usando almacenamiento local", error);
+      console.warn("No se pudo cargar desde Drive", error);
     }
   }
 
-  return loadLocalState() || getDefaultState();
+  return getDefaultState();
 }
 
 export async function saveState(state, preferDrive) {
-  const normalized = normalizeState(state);
-  saveLocalState(normalized);
-
-  if (preferDrive && window.driveApi && window.driveApi.isReady()) {
-    try {
-      await window.driveApi.saveToDrive(normalized);
-      return true;
-    } catch (error) {
-      console.warn("No se pudo guardar en Drive; se mantiene el almacenamiento local", error);
-    }
+  if (!preferDrive || !window.driveApi || !window.driveApi.isReady() || !window.driveApi.isSignedIn()) {
+    return false;
   }
 
-  return false;
+  const normalized = normalizeState({ ...state, lastUpdated: new Date().toISOString() });
+  await window.driveApi.saveToDrive(normalized);
+  return true;
 }

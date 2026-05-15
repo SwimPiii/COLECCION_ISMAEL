@@ -15,6 +15,10 @@
     return (window.COLECCION_CONFIG && window.COLECCION_CONFIG.googleClientId) || "";
   }
 
+  function getAccountHint() {
+    return (window.COLECCION_CONFIG && window.COLECCION_CONFIG.googleAccountHint) || "";
+  }
+
   async function waitForGIS(timeoutMs = 5000) {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -75,6 +79,7 @@
       client_id: clientId,
       scope: cfg.googleScopes,
       callback: "",
+      hint: getAccountHint(),
       use_fedcm_for_prompt: true
     });
     return tokenClient;
@@ -202,7 +207,10 @@
       };
 
       try {
-        tokenClient.requestAccessToken({ prompt: "consent" });
+        tokenClient.requestAccessToken({
+          prompt: "consent",
+          hint: getAccountHint()
+        });
       } catch (error) {
         state.lastError = error;
         reject(error);
@@ -236,7 +244,10 @@
         };
 
         try {
-          tokenClient.requestAccessToken({ prompt: "none" });
+          tokenClient.requestAccessToken({
+            prompt: "none",
+            hint: getAccountHint()
+          });
         } catch {
           resolve(false);
         }
