@@ -80,10 +80,18 @@
             <section class="import-box">
               <div class="import-box-header">
                 <h3>Importacion rapida</h3>
-                <span class="muted">Pega una linea por articulo con formato nombre;precio.</span>
+                <span id="import-help" class="muted">Pega una linea por articulo con formato nombre;precio.</span>
               </div>
 
               <div class="form-grid">
+                <label class="field">
+                  <span>Tipo</span>
+                  <select id="import-kind">
+                    <option value="purchase">Compras</option>
+                    <option value="sale">Ventas</option>
+                  </select>
+                </label>
+
                 <label class="field">
                   <span>Categoria comun</span>
                   <input id="import-category" type="text" value="Completo" placeholder="Ej. Completos" />
@@ -100,7 +108,7 @@
                 </label>
 
                 <div class="form-actions span-2">
-                  <button id="btn-import-purchases" type="button" class="btn">Importar compras</button>
+                  <button id="btn-import-purchases" type="button" class="btn">Importar bloque</button>
                 </div>
               </div>
             </section>

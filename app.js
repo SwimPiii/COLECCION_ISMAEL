@@ -12,6 +12,8 @@ const UI = {
   purchaseCustomCategory: document.getElementById("purchase-custom-category"),
   purchasePrice: document.getElementById("purchase-price"),
   purchaseNotes: document.getElementById("purchase-notes"),
+  importKind: document.getElementById("import-kind"),
+  importHelp: document.getElementById("import-help"),
   importCategory: document.getElementById("import-category"),
   importDate: document.getElementById("import-date"),
   importText: document.getElementById("import-text"),
@@ -114,7 +116,11 @@ function resolveCategoryFields(category) {
   };
 }
 
-function parseImportBlock(rawText, defaultCategory, defaultDate) {
+function normalizeComparableName(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function parsePurchaseImportBlock(rawText, defaultCategory, defaultDate) {
   const categoryFields = resolveCategoryFields(defaultCategory);
   const lines = String(rawText || "")
     .split(/\r?\n/)
@@ -155,6 +161,95 @@ function parseImportBlock(rawText, defaultCategory, defaultDate) {
   }
 
   return { importedItems, skippedLines };
+}
+
+function parseSaleImportBlock(rawText, defaultCategory, defaultDate, existingItems) {
+  const categoryFields = resolveCategoryFields(defaultCategory);
+  const lines = String(rawText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const updatedItemIds = [];
+  const createdItems = [];
+  const skippedLines = [];
+  const comparableMap = new Map();
+
+  for (const item of existingItems) {
+    const comparableName = normalizeComparableName(item.name);
+    if (!comparableName) continue;
+    const matches = comparableMap.get(comparableName) || [];
+    matches.push(item);
+    comparableMap.set(comparableName, matches);
+  }
+
+  for (const line of lines) {
+    const parts = line.split(";").map((part) => part.trim());
+    while (parts.length && !parts[parts.length - 1]) {
+      parts.pop();
+    }
+
+    if (parts.length < 3) {
+      skippedLines.push(line);
+      continue;
+    }
+
+    const [name, purchasePriceRaw, soldPriceRaw] = parts;
+    const purchasePrice = parseAmountToken(purchasePriceRaw);
+    const soldPrice = parseAmountToken(soldPriceRaw);
+
+    if (!name || purchasePrice === null || soldPrice === null) {
+      skippedLines.push(line);
+      continue;
+    }
+
+    const comparableName = normalizeComparableName(name);
+    const candidates = comparableMap.get(comparableName) || [];
+    const targetItem = candidates.find((item) => item.status !== "vendido") || candidates[0] || null;
+    const soldAt = defaultDate || new Date().toISOString();
+    const updatedAt = new Date().toISOString();
+
+    if (targetItem) {
+      targetItem.purchasePrice = purchasePrice;
+      targetItem.soldPrice = soldPrice;
+      targetItem.status = "vendido";
+      targetItem.soldAt = soldAt;
+      targetItem.updatedAt = updatedAt;
+      updatedItemIds.push(targetItem.id);
+      continue;
+    }
+
+    const createdItem = {
+      id: newId("item"),
+      name,
+      purchaseDate: defaultDate,
+      purchasePrice,
+      notes: "",
+      status: "vendido",
+      askingPrice: 0,
+      soldPrice,
+      soldAt,
+      createdAt: updatedAt,
+      updatedAt,
+      ...categoryFields
+    };
+
+    createdItems.push(createdItem);
+    const matches = comparableMap.get(comparableName) || [];
+    matches.push(createdItem);
+    comparableMap.set(comparableName, matches);
+  }
+
+  return { createdItems, updatedItemIds, skippedLines };
+}
+
+function refreshImportHelp() {
+  const isSaleImport = UI.importKind.value === "sale";
+  UI.importHelp.textContent = isSaleImport
+    ? "Pega una linea por articulo con formato nombre;precio_compra;precio_venta;"
+    : "Pega una linea por articulo con formato nombre;precio.";
+  UI.importText.placeholder = isSaleImport
+    ? "Adventures of lolo completo;174;220;\nBatman esp returns completo;200;260;"
+    : "Adventures of lolo completo;174\nBatman esp returns completo;200";
 }
 
 function getSelectedItem() {
@@ -406,6 +501,7 @@ async function init() {
   UI.version.textContent = cfg.version || "";
   UI.driveClientId.value = window.COLECCION_CONFIG.googleClientId || "";
   updateCustomCategoryVisibility();
+  refreshImportHelp();
   renderAll();
   await refreshDriveUI();
 
@@ -416,6 +512,7 @@ async function init() {
   } catch {}
 
   UI.purchaseCategory.addEventListener("change", updateCustomCategoryVisibility);
+  UI.importKind.addEventListener("change", refreshImportHelp);
 
   UI.purchaseForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -438,25 +535,56 @@ async function init() {
   });
 
   UI.btnImportPurchases.addEventListener("click", async () => {
-    const { importedItems, skippedLines } = parseImportBlock(
-      UI.importText.value,
-      UI.importCategory.value,
-      UI.importDate.value
-    );
+    const isSaleImport = UI.importKind.value === "sale";
+    let skippedLines = [];
+    let importedCount = 0;
 
-    if (!importedItems.length) {
-      alert("No se ha podido interpretar ninguna linea. Usa el formato nombre;precio.");
-      return;
+    if (isSaleImport) {
+      const { createdItems, updatedItemIds, skippedLines: saleSkippedLines } = parseSaleImportBlock(
+        UI.importText.value,
+        UI.importCategory.value,
+        UI.importDate.value,
+        appState.items
+      );
+      skippedLines = saleSkippedLines;
+      importedCount = createdItems.length + updatedItemIds.length;
+
+      if (!importedCount) {
+        alert("No se ha podido interpretar ninguna linea. Usa el formato nombre;precio_compra;precio_venta;");
+        return;
+      }
+
+      if (createdItems.length) {
+        appState.items.push(...createdItems);
+      }
+
+      const selectedId = createdItems.length ? createdItems[createdItems.length - 1].id : updatedItemIds[updatedItemIds.length - 1];
+      selectedItemId = selectedId || selectedItemId;
+    } else {
+      const { importedItems, skippedLines: purchaseSkippedLines } = parsePurchaseImportBlock(
+        UI.importText.value,
+        UI.importCategory.value,
+        UI.importDate.value
+      );
+      skippedLines = purchaseSkippedLines;
+      importedCount = importedItems.length;
+
+      if (!importedItems.length) {
+        alert("No se ha podido interpretar ninguna linea. Usa el formato nombre;precio.");
+        return;
+      }
+
+      appState.items.push(...importedItems);
+      selectedItemId = importedItems[importedItems.length - 1].id;
     }
 
-    appState.items.push(...importedItems);
-    selectedItemId = importedItems[importedItems.length - 1].id;
     renderAll();
     await persistState();
     resetImportForm();
 
     const skippedMessage = skippedLines.length ? `\nLineas omitidas: ${skippedLines.length}` : "";
-    alert(`Importadas ${importedItems.length} compra(s).${skippedMessage}`);
+    const actionLabel = isSaleImport ? "venta(s)" : "compra(s)";
+    alert(`Importadas ${importedCount} ${actionLabel}.${skippedMessage}`);
   });
 
   UI.searchName.addEventListener("keydown", (event) => {
