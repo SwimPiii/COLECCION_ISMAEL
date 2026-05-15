@@ -12,6 +12,10 @@ const UI = {
   purchaseCustomCategory: document.getElementById("purchase-custom-category"),
   purchasePrice: document.getElementById("purchase-price"),
   purchaseNotes: document.getElementById("purchase-notes"),
+  importCategory: document.getElementById("import-category"),
+  importDate: document.getElementById("import-date"),
+  importText: document.getElementById("import-text"),
+  btnImportPurchases: document.getElementById("btn-import-purchases"),
   searchName: document.getElementById("search-name"),
   searchMode: document.getElementById("search-mode"),
   searchCategory: document.getElementById("search-category"),
@@ -34,6 +38,7 @@ const UI = {
   soldPriceInput: document.getElementById("sold-price-input"),
   btnMarkForSale: document.getElementById("btn-mark-for-sale"),
   btnMarkSold: document.getElementById("btn-mark-sold"),
+  btnDeleteItem: document.getElementById("btn-delete-item"),
   version: document.getElementById("version"),
   driveStatus: document.getElementById("drive-status"),
   saveStatus: document.getElementById("save-status"),
@@ -80,6 +85,76 @@ function newId(prefix) {
 function toAmount(value) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function parseAmountToken(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const numericValue = Number(normalized);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function resolveCategoryFields(category) {
+  const normalizedCategory = String(category || "").trim() || "Otros";
+  const knownCategories = new Set(["Cartucho", "Manual", "Caja", "Completo", "Consola", "Figura", "Merchandising"]);
+  if (knownCategories.has(normalizedCategory)) {
+    return {
+      category: normalizedCategory,
+      categoryType: normalizedCategory,
+      customCategory: ""
+    };
+  }
+  return {
+    category: normalizedCategory,
+    categoryType: "Otros",
+    customCategory: normalizedCategory
+  };
+}
+
+function parseImportBlock(rawText, defaultCategory, defaultDate) {
+  const categoryFields = resolveCategoryFields(defaultCategory);
+  const lines = String(rawText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const importedItems = [];
+  const skippedLines = [];
+
+  for (const line of lines) {
+    const separatorIndex = line.lastIndexOf(";");
+    if (separatorIndex <= 0) {
+      skippedLines.push(line);
+      continue;
+    }
+
+    const name = line.slice(0, separatorIndex).trim();
+    const purchasePrice = parseAmountToken(line.slice(separatorIndex + 1));
+
+    if (!name || purchasePrice === null) {
+      skippedLines.push(line);
+      continue;
+    }
+
+    importedItems.push({
+      id: newId("item"),
+      name,
+      purchaseDate: defaultDate,
+      purchasePrice,
+      notes: "",
+      status: "coleccion",
+      askingPrice: 0,
+      soldPrice: 0,
+      soldAt: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...categoryFields
+    });
+  }
+
+  return { importedItems, skippedLines };
 }
 
 function getSelectedItem() {
@@ -307,6 +382,11 @@ function resetPurchaseForm() {
   updateCustomCategoryVisibility();
 }
 
+function resetImportForm() {
+  UI.importText.value = "";
+  UI.importDate.value = "";
+}
+
 function renderAll() {
   renderMetrics();
   populateCategoryFilter();
@@ -357,6 +437,28 @@ async function init() {
     renderResults();
   });
 
+  UI.btnImportPurchases.addEventListener("click", async () => {
+    const { importedItems, skippedLines } = parseImportBlock(
+      UI.importText.value,
+      UI.importCategory.value,
+      UI.importDate.value
+    );
+
+    if (!importedItems.length) {
+      alert("No se ha podido interpretar ninguna linea. Usa el formato nombre;precio.");
+      return;
+    }
+
+    appState.items.push(...importedItems);
+    selectedItemId = importedItems[importedItems.length - 1].id;
+    renderAll();
+    await persistState();
+    resetImportForm();
+
+    const skippedMessage = skippedLines.length ? `\nLineas omitidas: ${skippedLines.length}` : "";
+    alert(`Importadas ${importedItems.length} compra(s).${skippedMessage}`);
+  });
+
   UI.searchName.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -388,6 +490,19 @@ async function init() {
     item.status = "vendido";
     item.soldAt = new Date().toISOString();
     item.updatedAt = item.soldAt;
+    renderAll();
+    await persistState();
+  });
+
+  UI.btnDeleteItem.addEventListener("click", async () => {
+    const item = getSelectedItem();
+    if (!item) return;
+    if (!confirm(`Vas a eliminar "${item.name}" del inventario. Esta accion no se puede deshacer.`)) {
+      return;
+    }
+
+    appState.items = appState.items.filter((candidate) => candidate.id !== item.id);
+    selectedItemId = appState.items.length ? appState.items[0].id : null;
     renderAll();
     await persistState();
   });

@@ -76,6 +76,34 @@
                 <button type="submit" class="btn primary">Actualizar inventario</button>
               </div>
             </form>
+
+            <section class="import-box">
+              <div class="import-box-header">
+                <h3>Importacion rapida</h3>
+                <span class="muted">Pega una linea por articulo con formato nombre;precio.</span>
+              </div>
+
+              <div class="form-grid">
+                <label class="field">
+                  <span>Categoria comun</span>
+                  <input id="import-category" type="text" value="Completo" placeholder="Ej. Completos" />
+                </label>
+
+                <label class="field">
+                  <span>Fecha comun</span>
+                  <input id="import-date" type="date" />
+                </label>
+
+                <label class="field span-2">
+                  <span>Bloque de texto</span>
+                  <textarea id="import-text" rows="10" placeholder="Adventures of lolo completo;174&#10;Batman esp returns completo;200"></textarea>
+                </label>
+
+                <div class="form-actions span-2">
+                  <button id="btn-import-purchases" type="button" class="btn">Importar compras</button>
+                </div>
+              </div>
+            </section>
           </article>
 
           <article class="panel panel-search">
@@ -196,6 +224,10 @@
                 <button id="btn-mark-sold" type="button" class="btn primary">Vendido</button>
               </div>
             </div>
+
+            <div class="form-actions">
+              <button id="btn-delete-item" type="button" class="btn danger">Eliminar articulo</button>
+            </div>
           </div>
         </section>
       </main>
@@ -216,7 +248,7 @@
 
         <div class="footer-sync-meta">
           <span id="version"></span>
-          <span>Carpeta destino: PROGRAMA_WEB_GASTOS</span>
+          <span>Carpeta destino: COLECCION_ISMAEL</span>
         </div>
       </footer>
     </div>
