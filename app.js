@@ -22,6 +22,7 @@ const UI = {
   searchMode: document.getElementById("search-mode"),
   searchCategory: document.getElementById("search-category"),
   searchStatus: document.getElementById("search-status"),
+  searchSort: document.getElementById("search-sort"),
   btnRunSearch: document.getElementById("btn-run-search"),
   btnClearSearch: document.getElementById("btn-clear-search"),
   resultsSummary: document.getElementById("results-summary"),
@@ -287,9 +288,10 @@ function renderMetrics() {
       note: "Importe total vendido"
     },
     {
-      label: "Balance global",
+      label: "Beneficio total",
       value: formatCurrency(metrics.balance),
-      note: "Ventas menos compras"
+      note: "Ventas menos compras",
+      valueClass: metrics.balance >= 0 ? "amount-positive" : "amount-negative"
     }
   ];
 
@@ -298,7 +300,7 @@ function renderMetrics() {
       (card) => `
         <article class="metric-card">
           <div class="metric-label">${escapeHtml(card.label)}</div>
-          <div class="metric-value">${escapeHtml(card.value)}</div>
+          <div class="metric-value ${escapeHtml(card.valueClass || "")}">${escapeHtml(card.value)}</div>
           <div class="metric-note">${escapeHtml(card.note)}</div>
         </article>
       `
@@ -329,17 +331,59 @@ function matchesSearch(name, query, mode) {
   return normalizedName.includes(query);
 }
 
+function compareByName(left, right) {
+  return left.name.localeCompare(right.name, "es", { sensitivity: "base" });
+}
+
+function getSortableTimestamp(value) {
+  if (!value) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getComparableBenefit(item) {
+  if (item.status !== "vendido") return null;
+  return item.soldPrice - item.purchasePrice;
+}
+
+function compareItems(left, right) {
+  const sortMode = UI.searchSort.value;
+
+  if (sortMode === "date-desc") {
+    return getSortableTimestamp(right.purchaseDate) - getSortableTimestamp(left.purchaseDate) || compareByName(left, right);
+  }
+
+  if (sortMode === "date-asc") {
+    return getSortableTimestamp(left.purchaseDate) - getSortableTimestamp(right.purchaseDate) || compareByName(left, right);
+  }
+
+  if (sortMode === "benefit-desc") {
+    const leftBenefit = getComparableBenefit(left);
+    const rightBenefit = getComparableBenefit(right);
+
+    if (leftBenefit === null && rightBenefit !== null) return 1;
+    if (leftBenefit !== null && rightBenefit === null) return -1;
+    if (leftBenefit !== null && rightBenefit !== null && rightBenefit !== leftBenefit) {
+      return rightBenefit - leftBenefit;
+    }
+
+    return compareByName(left, right);
+  }
+
+  return compareByName(left, right);
+}
+
 function getFilteredItems() {
   const query = UI.searchName.value.trim().toLowerCase();
   const mode = UI.searchMode.value;
   const category = UI.searchCategory.value;
 
   return [...appState.items]
-    .sort((left, right) => left.name.localeCompare(right.name, "es", { sensitivity: "base" }))
     .filter((item) => {
       if (category && item.category !== category) return false;
       return matchesSearch(item.name, query, mode);
-    });
+    })
+    .sort(compareItems);
 }
 
 function renderPurchasesTable(items) {
@@ -579,6 +623,7 @@ async function init() {
     UI.searchMode.value = "contains";
     UI.searchCategory.value = "";
     UI.searchStatus.value = "all";
+    UI.searchSort.value = "name-asc";
     renderResults();
   });
 
@@ -642,6 +687,7 @@ async function init() {
   });
 
   UI.searchStatus.addEventListener("change", renderResults);
+  UI.searchSort.addEventListener("change", renderResults);
 
   document.querySelector(".results-block").addEventListener("click", (event) => {
     const row = event.target.closest("tr[data-item-id]");
