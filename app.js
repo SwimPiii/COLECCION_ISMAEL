@@ -168,24 +168,14 @@ function parsePurchaseImportBlock(rawText, defaultCategory, defaultDate) {
   return { importedItems, skippedLines };
 }
 
-function parseSaleImportBlock(rawText, defaultCategory, defaultDate, existingItems) {
+function parseSaleImportBlock(rawText, defaultCategory, defaultDate) {
   const categoryFields = resolveCategoryFields(defaultCategory);
   const lines = String(rawText || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const updatedItemIds = [];
   const createdItems = [];
   const skippedLines = [];
-  const comparableMap = new Map();
-
-  for (const item of existingItems) {
-    const comparableName = normalizeComparableName(item.name);
-    if (!comparableName) continue;
-    const matches = comparableMap.get(comparableName) || [];
-    matches.push(item);
-    comparableMap.set(comparableName, matches);
-  }
 
   for (const line of lines) {
     const parts = line.split(";").map((part) => part.trim());
@@ -207,21 +197,8 @@ function parseSaleImportBlock(rawText, defaultCategory, defaultDate, existingIte
       continue;
     }
 
-    const comparableName = normalizeComparableName(name);
-    const candidates = comparableMap.get(comparableName) || [];
-    const targetItem = candidates.find((item) => item.status !== "vendido") || null;
     const soldAt = defaultDate || new Date().toISOString();
     const updatedAt = new Date().toISOString();
-
-    if (targetItem) {
-      targetItem.purchasePrice = purchasePrice;
-      targetItem.soldPrice = soldPrice;
-      targetItem.status = "vendido";
-      targetItem.soldAt = soldAt;
-      targetItem.updatedAt = updatedAt;
-      updatedItemIds.push(targetItem.id);
-      continue;
-    }
 
     const createdItem = {
       id: newId("item"),
@@ -239,12 +216,9 @@ function parseSaleImportBlock(rawText, defaultCategory, defaultDate, existingIte
     };
 
     createdItems.push(createdItem);
-    const matches = comparableMap.get(comparableName) || [];
-    matches.push(createdItem);
-    comparableMap.set(comparableName, matches);
   }
 
-  return { createdItems, updatedItemIds, skippedLines };
+  return { createdItems, skippedLines };
 }
 
 function refreshImportHelp() {
@@ -578,14 +552,13 @@ async function init() {
     let importedCount = 0;
 
     if (isSaleImport) {
-      const { createdItems, updatedItemIds, skippedLines: saleSkippedLines } = parseSaleImportBlock(
+      const { createdItems, skippedLines: saleSkippedLines } = parseSaleImportBlock(
         UI.importText.value,
         UI.importCategory.value,
-        UI.importDate.value,
-        appState.items
+        UI.importDate.value
       );
       skippedLines = saleSkippedLines;
-      importedCount = createdItems.length + updatedItemIds.length;
+      importedCount = createdItems.length;
 
       if (!importedCount) {
         alert("No se ha podido interpretar ninguna linea. Usa el formato nombre;precio_compra;precio_venta;");
@@ -596,7 +569,7 @@ async function init() {
         appState.items.push(...createdItems);
       }
 
-      const selectedId = createdItems.length ? createdItems[createdItems.length - 1].id : updatedItemIds[updatedItemIds.length - 1];
+      const selectedId = createdItems[createdItems.length - 1].id;
       selectedItemId = selectedId || selectedItemId;
     } else {
       const { importedItems, skippedLines: purchaseSkippedLines } = parsePurchaseImportBlock(
