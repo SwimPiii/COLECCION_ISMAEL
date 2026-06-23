@@ -21,6 +21,7 @@ const UI = {
   searchName: document.getElementById("search-name"),
   searchMode: document.getElementById("search-mode"),
   searchCategory: document.getElementById("search-category"),
+  searchStatus: document.getElementById("search-status"),
   btnRunSearch: document.getElementById("btn-run-search"),
   btnClearSearch: document.getElementById("btn-clear-search"),
   resultsSummary: document.getElementById("results-summary"),
@@ -381,21 +382,41 @@ function renderSalesTable(items) {
 }
 
 function renderResults() {
-  visibleItems = getFilteredItems();
-  const purchaseItems = visibleItems.filter((item) => item.status !== "vendido");
-  const salesItems = visibleItems.filter((item) => item.status === "vendido");
-  const hasFilters = Boolean(UI.searchName.value.trim() || UI.searchCategory.value);
-  UI.resultsSummary.textContent = hasFilters
-    ? `${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`
-    : `Coleccion completa · ${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`;
+  const filteredItems = getFilteredItems();
+  const purchaseItems = filteredItems.filter((item) => item.status !== "vendido");
+  const salesItems = filteredItems.filter((item) => item.status === "vendido");
+  const statusFilter = UI.searchStatus.value;
+  const showPurchases = statusFilter !== "sales";
+  const showSales = statusFilter !== "purchases";
+
+  visibleItems = filteredItems.filter((item) => {
+    if (statusFilter === "purchases") return item.status !== "vendido";
+    if (statusFilter === "sales") return item.status === "vendido";
+    return true;
+  });
+
+  const hasFilters = Boolean(UI.searchName.value.trim() || UI.searchCategory.value || statusFilter !== "all");
+  if (statusFilter === "purchases") {
+    UI.resultsSummary.textContent = hasFilters
+      ? `${purchaseItems.length} compra(s)`
+      : `Coleccion completa · ${purchaseItems.length} compra(s)`;
+  } else if (statusFilter === "sales") {
+    UI.resultsSummary.textContent = hasFilters
+      ? `${salesItems.length} venta(s)`
+      : `Coleccion completa · ${salesItems.length} venta(s)`;
+  } else {
+    UI.resultsSummary.textContent = hasFilters
+      ? `${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`
+      : `Coleccion completa · ${purchaseItems.length} compra(s) · ${salesItems.length} venta(s)`;
+  }
 
   UI.resultsEmpty.classList.toggle("hidden", visibleItems.length > 0);
+  UI.resultsPurchasesGroup.classList.toggle("hidden", !showPurchases || purchaseItems.length === 0);
+  UI.resultsSalesGroup.classList.toggle("hidden", !showSales || salesItems.length === 0);
 
   if (!visibleItems.length) {
     UI.resultsPurchasesBody.innerHTML = "";
     UI.resultsSalesBody.innerHTML = "";
-    UI.resultsPurchasesGroup.classList.add("hidden");
-    UI.resultsSalesGroup.classList.add("hidden");
     if (!getSelectedItem()) {
       renderDetail(null);
     }
@@ -408,6 +429,9 @@ function renderResults() {
 
   renderPurchasesTable(purchaseItems);
   renderSalesTable(salesItems);
+
+  UI.resultsPurchasesGroup.classList.toggle("hidden", !showPurchases || purchaseItems.length === 0);
+  UI.resultsSalesGroup.classList.toggle("hidden", !showSales || salesItems.length === 0);
 
   renderDetail(getSelectedItem());
 }
@@ -548,6 +572,7 @@ async function init() {
     UI.searchName.value = "";
     UI.searchMode.value = "contains";
     UI.searchCategory.value = "";
+    UI.searchStatus.value = "all";
     renderResults();
   });
 
@@ -609,6 +634,8 @@ async function init() {
       renderResults();
     }
   });
+
+  UI.searchStatus.addEventListener("change", renderResults);
 
   document.querySelector(".results-block").addEventListener("click", (event) => {
     const row = event.target.closest("tr[data-item-id]");
