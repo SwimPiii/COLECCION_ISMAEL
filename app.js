@@ -45,6 +45,7 @@ const UI = {
   soldPriceInput: document.getElementById("sold-price-input"),
   btnMarkForSale: document.getElementById("btn-mark-for-sale"),
   btnMarkSold: document.getElementById("btn-mark-sold"),
+  btnRevertSale: document.getElementById("btn-revert-sale"),
   btnDeleteItem: document.getElementById("btn-delete-item"),
   version: document.getElementById("version"),
   driveStatus: document.getElementById("drive-status"),
@@ -433,6 +434,7 @@ function renderDetail(item) {
   UI.detailNotes.textContent = selected.notes || "Sin notas";
   UI.askingPriceInput.value = selected.askingPrice > 0 ? String(selected.askingPrice) : "";
   UI.soldPriceInput.value = selected.soldPrice > 0 ? String(selected.soldPrice) : "";
+  UI.btnRevertSale.classList.toggle("hidden", selected.status === "coleccion");
 }
 
 async function persistState() {
@@ -629,6 +631,19 @@ async function init() {
     item.status = "vendido";
     item.soldAt = new Date().toISOString();
     item.updatedAt = item.soldAt;
+    renderAll();
+    await persistState();
+  });
+
+  UI.btnRevertSale.addEventListener("click", async () => {
+    const item = getSelectedItem();
+    if (!item || item.status === "coleccion") return;
+
+    item.status = "coleccion";
+    item.askingPrice = 0;
+    item.soldPrice = 0;
+    item.soldAt = "";
+    item.updatedAt = new Date().toISOString();
     renderAll();
     await persistState();
   });
