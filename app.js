@@ -114,6 +114,12 @@ function toAmount(value) {
   return parsedValue === null ? 0 : parsedValue;
 }
 
+function toOptionalAmount(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  return parseAmountToken(normalized);
+}
+
 function parseAmountToken(value) {
   const normalized = String(value || "")
     .trim()
@@ -433,8 +439,8 @@ function getFilteredItems() {
   const state = UI.searchState.value;
   const dateFrom = UI.searchDateFrom.value;
   const dateTo = UI.searchDateTo.value;
-  const priceMin = parseAmountToken(UI.searchPriceMin.value);
-  const priceMax = parseAmountToken(UI.searchPriceMax.value);
+  const priceMin = toOptionalAmount(UI.searchPriceMin.value);
+  const priceMax = toOptionalAmount(UI.searchPriceMax.value);
   const dateFromTimestamp = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
   const dateToTimestamp = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
 
