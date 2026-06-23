@@ -420,6 +420,8 @@ function renderDetail(item) {
   if (!selected) {
     UI.detailBadge.textContent = "Sin seleccionar";
     UI.detailBadge.className = "status-chip muted";
+    UI.btnRevertSale.disabled = true;
+    UI.btnRevertSale.textContent = "Revertir venta";
     return;
   }
 
@@ -434,7 +436,8 @@ function renderDetail(item) {
   UI.detailNotes.textContent = selected.notes || "Sin notas";
   UI.askingPriceInput.value = selected.askingPrice > 0 ? String(selected.askingPrice) : "";
   UI.soldPriceInput.value = selected.soldPrice > 0 ? String(selected.soldPrice) : "";
-  UI.btnRevertSale.classList.toggle("hidden", selected.status === "coleccion");
+  UI.btnRevertSale.disabled = selected.status === "coleccion";
+  UI.btnRevertSale.textContent = selected.status === "venta" ? "Retirar de la venta" : "Revertir venta";
 }
 
 async function persistState() {
