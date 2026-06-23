@@ -261,9 +261,14 @@ function updateCustomCategoryVisibility() {
 function computeMetrics() {
   const totalPurchases = appState.items.reduce((total, item) => total + item.purchasePrice, 0);
   const totalSales = appState.items.reduce((total, item) => total + item.soldPrice, 0);
+  const totalProfit = appState.items.reduce((total, item) => {
+    if (item.status !== "vendido") return total;
+    return total + (item.soldPrice - item.purchasePrice);
+  }, 0);
   return {
     purchases: totalPurchases,
     sales: totalSales,
+    profit: totalProfit,
     balance: totalSales - totalPurchases,
     items: appState.items.length
   };
@@ -289,8 +294,14 @@ function renderMetrics() {
     },
     {
       label: "Beneficio total",
+      value: formatCurrency(metrics.profit),
+      note: "Ganancia o perdida de articulos vendidos",
+      valueClass: metrics.profit >= 0 ? "amount-positive" : "amount-negative"
+    },
+    {
+      label: "Balance global",
       value: formatCurrency(metrics.balance),
-      note: "Ventas menos compras",
+      note: "Ventas menos compras de toda la coleccion",
       valueClass: metrics.balance >= 0 ? "amount-positive" : "amount-negative"
     }
   ];
