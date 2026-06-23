@@ -42,8 +42,10 @@ const UI = {
   detailAskingPrice: document.getElementById("detail-asking-price"),
   detailSoldPrice: document.getElementById("detail-sold-price"),
   detailNotes: document.getElementById("detail-notes"),
+  purchasePriceInput: document.getElementById("purchase-price-input"),
   askingPriceInput: document.getElementById("asking-price-input"),
   soldPriceInput: document.getElementById("sold-price-input"),
+  btnUpdatePurchasePrice: document.getElementById("btn-update-purchase-price"),
   btnMarkForSale: document.getElementById("btn-mark-for-sale"),
   btnMarkSold: document.getElementById("btn-mark-sold"),
   btnRevertSale: document.getElementById("btn-revert-sale"),
@@ -444,6 +446,9 @@ function renderDetail(item) {
   if (!selected) {
     UI.detailBadge.textContent = "Sin seleccionar";
     UI.detailBadge.className = "status-chip muted";
+    UI.purchasePriceInput.value = "";
+    UI.askingPriceInput.value = "";
+    UI.soldPriceInput.value = "";
     UI.btnRevertSale.disabled = true;
     UI.btnRevertSale.textContent = "Revertir venta";
     return;
@@ -458,6 +463,7 @@ function renderDetail(item) {
   UI.detailAskingPrice.textContent = selected.askingPrice > 0 ? formatCurrency(selected.askingPrice) : "No indicado";
   UI.detailSoldPrice.textContent = selected.soldPrice > 0 ? formatCurrency(selected.soldPrice) : "No indicado";
   UI.detailNotes.textContent = selected.notes || "Sin notas";
+  UI.purchasePriceInput.value = selected.purchasePrice > 0 ? String(selected.purchasePrice) : "";
   UI.askingPriceInput.value = selected.askingPrice > 0 ? String(selected.askingPrice) : "";
   UI.soldPriceInput.value = selected.soldPrice > 0 ? String(selected.soldPrice) : "";
   UI.btnRevertSale.disabled = selected.status === "coleccion";
@@ -642,6 +648,22 @@ async function init() {
     if (!row) return;
     selectedItemId = row.dataset.itemId;
     renderResults();
+  });
+
+  UI.btnUpdatePurchasePrice.addEventListener("click", async () => {
+    const item = getSelectedItem();
+    if (!item) return;
+
+    const purchasePrice = toAmount(UI.purchasePriceInput.value);
+    if (purchasePrice <= 0) {
+      alert("Introduce un precio de compra mayor que 0.");
+      return;
+    }
+
+    item.purchasePrice = purchasePrice;
+    item.updatedAt = new Date().toISOString();
+    renderAll();
+    await persistState();
   });
 
   UI.btnMarkForSale.addEventListener("click", async () => {
