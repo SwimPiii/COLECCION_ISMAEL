@@ -11,6 +11,7 @@
 
   let tokenClient = null;
   let pendingAuthReject = null;
+  const BACKUP_SLOTS = 10;
 
   function getClientId() {
     return (window.COLECCION_CONFIG && window.COLECCION_CONFIG.googleClientId) || "";
@@ -146,8 +147,122 @@
       fields: "id"
     });
     state.fileId = created.result.id;
-    await uploadContent(state.fileId, JSON.stringify({}));
+    await uploadContent(state.fileId, JSON.stringify({}), cfg.driveFileName);
     return state.fileId;
+  }
+
+  function getDriveBaseName() {
+    return String(cfg.driveFileName || "coleccion_tracker.json").replace(/\.json$/i, "") || "coleccion_tracker";
+  }
+
+  function getBackupManifestName() {
+    return `${getDriveBaseName()}__backups_manifest.json`;
+  }
+
+  function formatBackupStamp(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+  }
+
+  function getBackupFileName(slot, savedAt) {
+    return `${getDriveBaseName()}__backup_${String(slot).padStart(2, "0")}__${formatBackupStamp(new Date(savedAt))}.json`;
+  }
+
+  async function getFileByName(folderId, fileName) {
+    const query = `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed=false`;
+    const response = await window.gapi.client.drive.files.list({ q: query, pageSize: 1, fields: "files(id,name)" });
+    return response.result.files && response.result.files.length ? response.result.files[0] : null;
+  }
+
+  async function createJsonFile(folderId, fileName, content) {
+    const created = await window.gapi.client.drive.files.create({
+      resource: {
+        name: fileName,
+        mimeType: "application/json",
+        parents: [folderId]
+      },
+      fields: "id"
+    });
+    await uploadContent(created.result.id, content, fileName);
+    return created.result.id;
+  }
+
+  async function deleteFile(fileId) {
+    return window.gapi.client.drive.files.delete({ fileId });
+  }
+
+  async function loadManifest(folderId) {
+    const manifestFile = await getFileByName(folderId, getBackupManifestName());
+    if (!manifestFile) {
+      return { manifestFileId: null, manifest: { nextSlot: 1, latestSlot: null, latestSavedAt: "", slots: {} } };
+    }
+
+    try {
+      const response = await window.gapi.client.drive.files.get({ fileId: manifestFile.id, alt: "media" });
+      return {
+        manifestFileId: manifestFile.id,
+        manifest: response.result && typeof response.result === "object"
+          ? response.result
+          : { nextSlot: 1, latestSlot: null, latestSavedAt: "", slots: {} }
+      };
+    } catch {
+      return { manifestFileId: manifestFile.id, manifest: { nextSlot: 1, latestSlot: null, latestSavedAt: "", slots: {} } };
+    }
+  }
+
+  async function saveBackupCopy(payload) {
+    const folderId = await resolveFolderId();
+    const { manifestFileId, manifest } = await loadManifest(folderId);
+    const slot = Number(manifest.nextSlot) >= 1 && Number(manifest.nextSlot) <= BACKUP_SLOTS ? Number(manifest.nextSlot) : 1;
+    const previousSlot = manifest.slots && manifest.slots[String(slot)];
+
+    if (previousSlot && previousSlot.fileId) {
+      try {
+        await deleteFile(previousSlot.fileId);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    const savedAt = new Date().toISOString();
+    const backupFileName = getBackupFileName(slot, savedAt);
+    const backupPayload = {
+      backupMetadata: {
+        slot,
+        savedAt,
+        sourceFileName: cfg.driveFileName
+      },
+      state: payload
+    };
+
+    const backupFileId = await createJsonFile(folderId, backupFileName, JSON.stringify(backupPayload));
+    const nextSlot = slot >= BACKUP_SLOTS ? 1 : slot + 1;
+    const updatedManifest = {
+      nextSlot,
+      latestSlot: slot,
+      latestSavedAt: savedAt,
+      slots: {
+        ...(manifest.slots || {}),
+        [String(slot)]: {
+          fileId: backupFileId,
+          fileName: backupFileName,
+          savedAt
+        }
+      }
+    };
+
+    if (manifestFileId) {
+      await uploadContent(manifestFileId, JSON.stringify(updatedManifest), getBackupManifestName());
+    } else {
+      await createJsonFile(folderId, getBackupManifestName(), JSON.stringify(updatedManifest));
+    }
   }
 
   async function ensureFolderAndFile() {
@@ -155,11 +270,11 @@
     await getOrCreateFile(folderId);
   }
 
-  async function uploadContent(fileId, content) {
+  async function uploadContent(fileId, content, fileName = cfg.driveFileName) {
     const boundary = "coleccion_boundary";
     const delimiter = `\r\n--${boundary}\r\n`;
     const closeDelimiter = `\r\n--${boundary}--`;
-    const metadata = { name: cfg.driveFileName, mimeType: "application/json" };
+    const metadata = { name: fileName, mimeType: "application/json" };
     const body =
       delimiter +
       "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
@@ -301,10 +416,12 @@
 
     try {
       await uploadContent(state.fileId, JSON.stringify(payload));
+      await saveBackupCopy(payload);
     } catch (error) {
       if (isNotFoundError(error)) {
         await ensureFolderAndFile();
         await uploadContent(state.fileId, JSON.stringify(payload));
+        await saveBackupCopy(payload);
       } else {
         throw error;
       }

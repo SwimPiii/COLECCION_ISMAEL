@@ -47,7 +47,7 @@ body {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -151,6 +151,11 @@ h3 {
 .field {
   display: grid;
   gap: 8px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .field span,
@@ -318,6 +323,28 @@ textarea {
   font-weight: 700;
 }
 
+.category-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-filter-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(151, 181, 226, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.category-filter-option input {
+  width: auto;
+  margin: 0;
+}
+
 .detail-panel {
   margin-bottom: 18px;
 }
@@ -351,6 +378,26 @@ textarea {
   white-space: pre-wrap;
   color: #d6e4f7;
   line-height: 1.6;
+}
+
+.detail-edit-block {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(151, 181, 226, 0.12);
+  background: rgba(4, 14, 28, 0.34);
+  display: grid;
+  gap: 14px;
+}
+
+.detail-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-edit-grid {
+  margin: 0;
 }
 
 .detail-actions-grid {

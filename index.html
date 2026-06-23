@@ -135,19 +135,48 @@
               </label>
 
               <label class="field">
-                <span>Categoria</span>
-                <select id="search-category">
-                  <option value="">Todas</option>
+                <span>Estado</span>
+                <select id="search-state">
+                  <option value="all">Todos</option>
+                  <option value="coleccion">En coleccion</option>
+                  <option value="venta">Puesto a la venta</option>
+                  <option value="vendido">Vendido</option>
                 </select>
               </label>
 
-              <label class="field span-2">
-                <span>Mostrar</span>
+              <label class="field">
+                <span>Listado</span>
                 <select id="search-status">
                   <option value="all">Compras y ventas</option>
                   <option value="purchases">Solo compras</option>
                   <option value="sales">Solo ventas</option>
                 </select>
+              </label>
+
+              <label class="field span-2">
+                <span>Categorias</span>
+                <div id="search-category-list" class="category-filter-list"></div>
+                <small class="field-help">Si no marcas ninguna, se muestran todas.</small>
+              </label>
+
+              <label class="field">
+                <span>Fecha desde</span>
+                <input id="search-date-from" type="date" />
+              </label>
+
+              <label class="field">
+                <span>Fecha hasta</span>
+                <input id="search-date-to" type="date" />
+              </label>
+
+              <label class="field">
+                <span>Compra minima</span>
+                <input id="search-price-min" type="number" min="0" step="0.01" placeholder="0.00" />
+              </label>
+
+              <label class="field">
+                <span>Compra maxima</span>
+                <input id="search-price-max" type="number" min="0" step="0.01" placeholder="0.00" />
               </label>
 
               <label class="field span-2">
@@ -263,6 +292,53 @@
               <div id="detail-notes" class="detail-notes"></div>
             </div>
 
+            <section class="detail-edit-block">
+              <div class="detail-edit-header">
+                <h3>Editar ficha</h3>
+                <span class="muted">Modifica los datos principales del articulo</span>
+              </div>
+
+              <div class="form-grid detail-edit-grid">
+                <label class="field span-2">
+                  <span>Nombre</span>
+                  <input id="detail-name-input" type="text" placeholder="Nombre del articulo" />
+                </label>
+
+                <label class="field">
+                  <span>Fecha</span>
+                  <input id="detail-date-input" type="date" />
+                </label>
+
+                <label class="field">
+                  <span>Categoria</span>
+                  <select id="detail-category-input">
+                    <option value="Cartucho">Cartucho</option>
+                    <option value="Manual">Manual</option>
+                    <option value="Caja">Caja</option>
+                    <option value="Completo">Completo</option>
+                    <option value="Consola">Consola</option>
+                    <option value="Figura">Figura</option>
+                    <option value="Merchandising">Merchandising</option>
+                    <option value="Otros">Otros</option>
+                  </select>
+                </label>
+
+                <label class="field span-2 hidden" id="detail-custom-category-field">
+                  <span>Nombre de la categoria</span>
+                  <input id="detail-custom-category-input" type="text" placeholder="Ej. Guia, poster, steelbook..." />
+                </label>
+
+                <label class="field span-2">
+                  <span>Notas</span>
+                  <textarea id="detail-notes-input" rows="5" placeholder="Estado, procedencia, lote, accesorios incluidos..."></textarea>
+                </label>
+
+                <div class="form-actions span-2">
+                  <button id="btn-save-detail" type="button" class="btn primary">Guardar ficha</button>
+                </div>
+              </div>
+            </section>
+
             <div class="detail-actions-grid">
               <div class="action-box">
                 <label class="field">
@@ -309,6 +385,11 @@
           <button id="btn-save-clientid" type="button" class="btn subtle">Aplicar</button>
           <button id="btn-drive-signin" type="button" class="btn primary">Conectar</button>
           <button id="btn-drive-signout" type="button" class="btn subtle">Desconectar</button>
+        </div>
+
+        <div class="footer-sync-actions footer-export-actions">
+          <button id="btn-export-csv" type="button" class="btn subtle">Exportar CSV</button>
+          <button id="btn-export-excel" type="button" class="btn subtle">Exportar Excel</button>
         </div>
 
         <div class="footer-sync-meta">

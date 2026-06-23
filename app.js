@@ -1,6 +1,7 @@
 import { getDefaultState, loadState, saveState } from "./storage.js";
 
 const cfg = window.COLECCION_CONFIG || {};
+const KNOWN_CATEGORIES = ["Cartucho", "Manual", "Caja", "Completo", "Consola", "Figura", "Merchandising", "Otros"];
 
 const UI = {
   metricsGrid: document.getElementById("metrics-grid"),
@@ -20,8 +21,13 @@ const UI = {
   btnImportPurchases: document.getElementById("btn-import-purchases"),
   searchName: document.getElementById("search-name"),
   searchMode: document.getElementById("search-mode"),
-  searchCategory: document.getElementById("search-category"),
+  searchState: document.getElementById("search-state"),
+  searchCategoryList: document.getElementById("search-category-list"),
   searchStatus: document.getElementById("search-status"),
+  searchDateFrom: document.getElementById("search-date-from"),
+  searchDateTo: document.getElementById("search-date-to"),
+  searchPriceMin: document.getElementById("search-price-min"),
+  searchPriceMax: document.getElementById("search-price-max"),
   searchSort: document.getElementById("search-sort"),
   btnRunSearch: document.getElementById("btn-run-search"),
   btnClearSearch: document.getElementById("btn-clear-search"),
@@ -43,9 +49,16 @@ const UI = {
   detailAskingPrice: document.getElementById("detail-asking-price"),
   detailSoldPrice: document.getElementById("detail-sold-price"),
   detailNotes: document.getElementById("detail-notes"),
+  detailNameInput: document.getElementById("detail-name-input"),
+  detailDateInput: document.getElementById("detail-date-input"),
+  detailCategoryInput: document.getElementById("detail-category-input"),
+  detailCustomCategoryField: document.getElementById("detail-custom-category-field"),
+  detailCustomCategoryInput: document.getElementById("detail-custom-category-input"),
+  detailNotesInput: document.getElementById("detail-notes-input"),
   purchasePriceInput: document.getElementById("purchase-price-input"),
   askingPriceInput: document.getElementById("asking-price-input"),
   soldPriceInput: document.getElementById("sold-price-input"),
+  btnSaveDetail: document.getElementById("btn-save-detail"),
   btnUpdatePurchasePrice: document.getElementById("btn-update-purchase-price"),
   btnMarkForSale: document.getElementById("btn-mark-for-sale"),
   btnMarkSold: document.getElementById("btn-mark-sold"),
@@ -57,7 +70,9 @@ const UI = {
   driveClientId: document.getElementById("drive-client-id"),
   btnSaveClientId: document.getElementById("btn-save-clientid"),
   driveSignin: document.getElementById("btn-drive-signin"),
-  driveSignout: document.getElementById("btn-drive-signout")
+  driveSignout: document.getElementById("btn-drive-signout"),
+  btnExportCsv: document.getElementById("btn-export-csv"),
+  btnExportExcel: document.getElementById("btn-export-excel")
 };
 
 let appState = getDefaultState();
@@ -111,7 +126,7 @@ function parseAmountToken(value) {
 
 function resolveCategoryFields(category) {
   const normalizedCategory = String(category || "").trim() || "Otros";
-  const knownCategories = new Set(["Cartucho", "Manual", "Caja", "Completo", "Consola", "Figura", "Merchandising"]);
+  const knownCategories = new Set(KNOWN_CATEGORIES.filter((entry) => entry !== "Otros"));
   if (knownCategories.has(normalizedCategory)) {
     return {
       category: normalizedCategory,
@@ -258,6 +273,12 @@ function updateCustomCategoryVisibility() {
   UI.purchaseCustomCategory.required = showCustom;
 }
 
+function updateDetailCategoryVisibility() {
+  const showCustom = UI.detailCategoryInput.value === "Otros";
+  UI.detailCustomCategoryField.classList.toggle("hidden", !showCustom);
+  UI.detailCustomCategoryInput.required = showCustom;
+}
+
 function computeMetrics() {
   const totalPurchases = appState.items.reduce((total, item) => total + item.purchasePrice, 0);
   const totalSales = appState.items.reduce((total, item) => total + item.soldPrice, 0);
@@ -321,17 +342,38 @@ function renderMetrics() {
 
 function populateCategoryFilter() {
   const categories = Array.from(new Set(appState.items.map((item) => item.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const currentValue = UI.searchCategory.value;
-  UI.searchCategory.innerHTML = '<option value="">Todas</option>';
+  const selectedCategories = new Set(getSelectedSearchCategories());
 
-  for (const category of categories) {
-    const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
-    UI.searchCategory.appendChild(option);
-  }
+  UI.searchCategoryList.innerHTML = categories.length
+    ? categories
+        .map((category) => {
+          const checked = selectedCategories.has(category) ? 'checked' : '';
+          return `
+            <label class="category-filter-option">
+              <input type="checkbox" value="${escapeHtml(category)}" ${checked} />
+              <span>${escapeHtml(category)}</span>
+            </label>
+          `;
+        })
+        .join("")
+    : '<span class="muted">Sin categorias registradas.</span>';
+}
 
-  UI.searchCategory.value = categories.includes(currentValue) ? currentValue : "";
+function getSelectedSearchCategories() {
+  return Array.from(UI.searchCategoryList.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+}
+
+function hasActiveSearchFilters() {
+  return Boolean(
+    UI.searchName.value.trim() ||
+      getSelectedSearchCategories().length ||
+      UI.searchState.value !== "all" ||
+      UI.searchStatus.value !== "all" ||
+      UI.searchDateFrom.value ||
+      UI.searchDateTo.value ||
+      UI.searchPriceMin.value ||
+      UI.searchPriceMax.value
+  );
 }
 
 function matchesSearch(name, query, mode) {
@@ -387,11 +429,26 @@ function compareItems(left, right) {
 function getFilteredItems() {
   const query = UI.searchName.value.trim().toLowerCase();
   const mode = UI.searchMode.value;
-  const category = UI.searchCategory.value;
+  const selectedCategories = getSelectedSearchCategories();
+  const state = UI.searchState.value;
+  const dateFrom = UI.searchDateFrom.value;
+  const dateTo = UI.searchDateTo.value;
+  const priceMin = parseAmountToken(UI.searchPriceMin.value);
+  const priceMax = parseAmountToken(UI.searchPriceMax.value);
+  const dateFromTimestamp = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+  const dateToTimestamp = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
 
   return [...appState.items]
     .filter((item) => {
-      if (category && item.category !== category) return false;
+      if (selectedCategories.length && !selectedCategories.includes(item.category)) return false;
+      if (state !== "all" && item.status !== state) return false;
+      if (priceMin !== null && item.purchasePrice < priceMin) return false;
+      if (priceMax !== null && item.purchasePrice > priceMax) return false;
+
+      const itemTimestamp = getSortableTimestamp(item.purchaseDate);
+      if (dateFromTimestamp !== null && itemTimestamp < dateFromTimestamp) return false;
+      if (dateToTimestamp !== null && itemTimestamp > dateToTimestamp) return false;
+
       return matchesSearch(item.name, query, mode);
     })
     .sort(compareItems);
@@ -452,7 +509,7 @@ function renderResults() {
     return true;
   });
 
-  const hasFilters = Boolean(UI.searchName.value.trim() || UI.searchCategory.value || statusFilter !== "all");
+  const hasFilters = hasActiveSearchFilters();
   if (statusFilter === "purchases") {
     UI.resultsSummary.textContent = hasFilters
       ? `${purchaseItems.length} compra(s)`
@@ -501,11 +558,17 @@ function renderDetail(item) {
   if (!selected) {
     UI.detailBadge.textContent = "Sin seleccionar";
     UI.detailBadge.className = "status-chip muted";
+    UI.detailNameInput.value = "";
+    UI.detailDateInput.value = "";
+    UI.detailCategoryInput.value = "Cartucho";
+    UI.detailCustomCategoryInput.value = "";
+    UI.detailNotesInput.value = "";
     UI.purchasePriceInput.value = "";
     UI.askingPriceInput.value = "";
     UI.soldPriceInput.value = "";
     UI.btnRevertSale.disabled = true;
     UI.btnRevertSale.textContent = "Revertir venta";
+    updateDetailCategoryVisibility();
     return;
   }
 
@@ -518,11 +581,122 @@ function renderDetail(item) {
   UI.detailAskingPrice.textContent = selected.askingPrice > 0 ? formatCurrency(selected.askingPrice) : "No indicado";
   UI.detailSoldPrice.textContent = selected.soldPrice > 0 ? formatCurrency(selected.soldPrice) : "No indicado";
   UI.detailNotes.textContent = selected.notes || "Sin notas";
+  UI.detailNameInput.value = selected.name;
+  UI.detailDateInput.value = selected.purchaseDate || "";
+  UI.detailCategoryInput.value = KNOWN_CATEGORIES.includes(selected.categoryType) ? selected.categoryType : "Otros";
+  UI.detailCustomCategoryInput.value = selected.categoryType === "Otros" ? selected.customCategory || selected.category : "";
+  UI.detailNotesInput.value = selected.notes || "";
   UI.purchasePriceInput.value = selected.purchasePrice > 0 ? String(selected.purchasePrice) : "";
   UI.askingPriceInput.value = selected.askingPrice > 0 ? String(selected.askingPrice) : "";
   UI.soldPriceInput.value = selected.soldPrice > 0 ? String(selected.soldPrice) : "";
   UI.btnRevertSale.disabled = selected.status === "coleccion";
   UI.btnRevertSale.textContent = selected.status === "venta" ? "Retirar de la venta" : "Revertir venta";
+  updateDetailCategoryVisibility();
+}
+
+function getExportBaseName() {
+  return String(cfg.driveFileName || "coleccion_tracker.json").replace(/\.json$/i, "") || "coleccion_tracker";
+}
+
+function formatFileTimestamp(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+}
+
+function getBenefit(item) {
+  return item.status === "vendido" ? item.soldPrice - item.purchasePrice : 0;
+}
+
+function buildExportRows() {
+  return appState.items.map((item) => ({
+    nombre: item.name,
+    categoria: item.category,
+    fecha_compra: item.purchaseDate || "",
+    precio_compra: item.purchasePrice,
+    estado: item.status,
+    precio_anunciado: item.askingPrice,
+    precio_venta: item.soldPrice,
+    beneficio: getBenefit(item),
+    fecha_venta: item.soldAt || "",
+    notas: item.notes || "",
+    creado: item.createdAt || "",
+    actualizado: item.updatedAt || ""
+  }));
+}
+
+function escapeCsvValue(value) {
+  const normalized = String(value ?? "");
+  return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function downloadFile(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCsv() {
+  const rows = buildExportRows();
+  const headers = Object.keys(rows[0] || {
+    nombre: "",
+    categoria: "",
+    fecha_compra: "",
+    precio_compra: "",
+    estado: "",
+    precio_anunciado: "",
+    precio_venta: "",
+    beneficio: "",
+    fecha_venta: "",
+    notas: "",
+    creado: "",
+    actualizado: ""
+  });
+  const csvLines = [
+    "sep=;",
+    headers.join(";")
+  ];
+
+  for (const row of rows) {
+    csvLines.push(headers.map((header) => escapeCsvValue(row[header])).join(";"));
+  }
+
+  downloadFile(`\uFEFF${csvLines.join("\n")}`, `${getExportBaseName()}_${formatFileTimestamp()}.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportExcel() {
+  const rows = buildExportRows();
+  const headers = Object.keys(rows[0] || {
+    nombre: "",
+    categoria: "",
+    fecha_compra: "",
+    precio_compra: "",
+    estado: "",
+    precio_anunciado: "",
+    precio_venta: "",
+    beneficio: "",
+    fecha_venta: "",
+    notas: "",
+    creado: "",
+    actualizado: ""
+  });
+  const tableHeaders = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const tableRows = rows
+    .map((row) => `<tr>${headers.map((header) => `<td>${escapeHtml(row[header])}</td>`).join("")}</tr>`)
+    .join("");
+  const content = `\uFEFF<html><head><meta charset="UTF-8"></head><body><table><thead><tr>${tableHeaders}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+
+  downloadFile(content, `${getExportBaseName()}_${formatFileTimestamp()}.xls`, "application/vnd.ms-excel;charset=utf-8;");
 }
 
 async function persistState() {
@@ -614,6 +788,7 @@ async function init() {
   } catch {}
 
   UI.purchaseCategory.addEventListener("change", updateCustomCategoryVisibility);
+  UI.detailCategoryInput.addEventListener("change", updateDetailCategoryVisibility);
   UI.importKind.addEventListener("change", refreshImportHelp);
 
   UI.purchaseForm.addEventListener("submit", async (event) => {
@@ -632,9 +807,16 @@ async function init() {
   UI.btnClearSearch.addEventListener("click", () => {
     UI.searchName.value = "";
     UI.searchMode.value = "contains";
-    UI.searchCategory.value = "";
+    UI.searchState.value = "all";
     UI.searchStatus.value = "all";
+    UI.searchDateFrom.value = "";
+    UI.searchDateTo.value = "";
+    UI.searchPriceMin.value = "";
+    UI.searchPriceMax.value = "";
     UI.searchSort.value = "name-asc";
+    for (const input of UI.searchCategoryList.querySelectorAll('input[type="checkbox"]')) {
+      input.checked = false;
+    }
     renderResults();
   });
 
@@ -697,14 +879,44 @@ async function init() {
     }
   });
 
+  UI.searchState.addEventListener("change", renderResults);
   UI.searchStatus.addEventListener("change", renderResults);
   UI.searchSort.addEventListener("change", renderResults);
+  UI.searchDateFrom.addEventListener("change", renderResults);
+  UI.searchDateTo.addEventListener("change", renderResults);
+  UI.searchPriceMin.addEventListener("input", renderResults);
+  UI.searchPriceMax.addEventListener("input", renderResults);
+  UI.searchCategoryList.addEventListener("change", renderResults);
 
   document.querySelector(".results-block").addEventListener("click", (event) => {
     const row = event.target.closest("tr[data-item-id]");
     if (!row) return;
     selectedItemId = row.dataset.itemId;
     renderResults();
+  });
+
+  UI.btnSaveDetail.addEventListener("click", async () => {
+    const item = getSelectedItem();
+    if (!item) return;
+
+    const name = UI.detailNameInput.value.trim();
+    if (!name) {
+      alert("Introduce un nombre para el articulo.");
+      return;
+    }
+
+    const categoryType = UI.detailCategoryInput.value;
+    const customCategory = UI.detailCustomCategoryInput.value.trim();
+
+    item.name = name;
+    item.purchaseDate = UI.detailDateInput.value;
+    item.category = categoryType === "Otros" ? customCategory || "Otros" : categoryType;
+    item.categoryType = categoryType;
+    item.customCategory = categoryType === "Otros" ? customCategory : "";
+    item.notes = UI.detailNotesInput.value.trim();
+    item.updatedAt = new Date().toISOString();
+    renderAll();
+    await persistState();
   });
 
   UI.btnUpdatePurchasePrice.addEventListener("click", async () => {
@@ -805,6 +1017,9 @@ async function init() {
     renderAll();
     await refreshDriveUI();
   });
+
+  UI.btnExportCsv.addEventListener("click", exportCsv);
+  UI.btnExportExcel.addEventListener("click", exportExcel);
 }
 
 init();
